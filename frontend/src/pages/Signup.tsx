@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 
 const Signup: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +24,9 @@ const Signup: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        navigate('/dashboard');
+        // Automatically login the user after successful signup
+        await login(email, password); // Assuming login sets session/token
+        navigate('/dashboard'); // Redirect to dashboard
       } else {
         setError(data.message || 'Failed to create account');
       }
@@ -38,18 +42,14 @@ const Signup: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-md"
       >
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Create your account
-        </h2>
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Create your account</h2>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && <div className="text-red-600 text-center text-sm">{error}</div>}
 
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email address
-              </label>
+              <label htmlFor="email-address" className="sr-only">Email address</label>
               <input
                 id="email-address"
                 type="email"
@@ -61,9 +61,7 @@ const Signup: React.FC = () => {
               />
             </div>
             <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
+              <label htmlFor="password" className="sr-only">Password</label>
               <input
                 id="password"
                 type="password"
