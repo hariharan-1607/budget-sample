@@ -8,7 +8,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -29,17 +29,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Simulate API call
-    const user = { id: Date.now().toString(), email };
-    localStorage.setItem('user', JSON.stringify(user));
-    setUser(user);
+    const response = await fetch('http://localhost:5000/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.msg || 'Login failed');
+
+    localStorage.setItem('user', JSON.stringify(data.user));
+    localStorage.setItem('token', data.token);
+    setUser(data.user);
   };
 
-  const signup = async (email: string, password: string) => {
-    // Simulate API call
-    const user = { id: Date.now().toString(), email };
-    localStorage.setItem('user', JSON.stringify(user));
-    setUser(user);
+  const signup = async (name: string, email: string, password: string) => {
+    const response = await fetch('http://localhost:5000/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.msg || 'Signup failed');
+
+    // Auto login after signup? Or let them login. 
+    // The previous implementation was auto-login like.
+    // Let's just return here and let the component handle redirect or auto-login.
+    // But consistent with previous mock:
+    // We can't easily auto-login unless the signup returns the token too.
+    // The current backend signup route returns { msg: "User registered successfully" } but NO token.
+    // So we can't auto-login without modifying backend or making a second request.
+    // I will modify the component to redirect to login or handle it.
   };
 
   const logout = () => {

@@ -1,13 +1,22 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
+const connectDB = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
-mongoose.connect('mongodb://localhost:27017/budgetbuddy')
+// Middleware
+app.use(cors());
+app.use(express.json());
 
-.then(() => console.log('✅ MongoDB Connected'))
-.catch(err => console.log(err));
+// Connect Database
+connectDB();
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 app.get('/', (req, res) => {
     res.send('Server is running!');
