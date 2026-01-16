@@ -13,13 +13,20 @@ app.use(cors());
 app.use(express.json());
 
 // Connect Database
-connectDB();
+// Connect Database
+connectDB().catch(err => console.error("Database Init Failed:", err));
 
 // Routes
 app.use('/api/auth', authRoutes);
 
 app.get('/', (req, res) => {
-    res.send('Server is running!');
+    res.json({ msg: 'Server is running!', status: 'ok' });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ msg: 'Server Error', error: err.message });
 });
 
 // Export the app for Vercel
