@@ -2,12 +2,13 @@ const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI, {}); 
+    // Add timeout to fail faster so Vercel doesn't hit its own limit first
+    await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000, // 5 seconds
+    });
     console.log("✅ MongoDB Connected");
   } catch (error) {
     console.error("❌ MongoDB Connection Failed:", error);
-    // Do not exit process, let the server run to report error
-    // process.exit(1); 
     throw error;
   }
 };
