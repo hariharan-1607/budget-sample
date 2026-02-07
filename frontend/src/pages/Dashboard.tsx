@@ -19,8 +19,9 @@ interface Budget {
 }
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, getAuthHeaders } = useAuth();
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAddBudget, setShowAddBudget] = useState(false);
   const [newBudget, setNewBudget] = useState({ name: '', totalAmount: '' });
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
@@ -31,57 +32,123 @@ const Dashboard = () => {
     description: '',
   });
 
+  const apiUrl = import.meta.env.VITE_API_URL || '/api';
+
   useEffect(() => {
-    const storedBudgets = localStorage.getItem(`budgets_${user?.id}`);
-    if (storedBudgets) {
-      setBudgets(JSON.parse(storedBudgets));
+    if (user) {
+      fetchBudgets();
     }
   }, [user]);
 
-  const saveBudgets = (updatedBudgets: Budget[]) => {
-    localStorage.setItem(`budgets_${user?.id}`, JSON.stringify(updatedBudgets));
-    setBudgets(updatedBudgets);
+  const fetchBudgets = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${apiUrl}/budgets`, {
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        // Transform Supabase data to match frontend interface
+        const transformedBudgets = data.map((budget: any) => ({
+          id: budget.id,
+          name: budget.name,
+          totalAmount: parseFloat(budget.total_amount),
+          expenses: (budget.expenses || []).map((exp: any) => ({
+            id: exp.id,
+            category: exp.category,
+            amount: parseFloat(exp.amount),
+            description: exp.description || '',
+            date: exp.date,
+          })),
+        }));
+        setBudgets(transformedBudgets);
+      }
+    } catch (error) {
+      console.error('Error fetching budgets:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddBudget = () => {
+  const handleAddBudget = async () => {
     if (!newBudget.name || !newBudget.totalAmount) return;
 
-    const budget: Budget = {
-      id: Date.now().toString(),
-      name: newBudget.name,
-      totalAmount: parseFloat(newBudget.totalAmount),
-      expenses: [],
-    };
+    try {
+      const response = await fetch(`${apiUrl}/budgets`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          name: newBudget.name,
+          totalAmount: newBudget.totalAmount,
+        }),
+      });
 
-    saveBudgets([...budgets, budget]);
-    setNewBudget({ name: '', totalAmount: '' });
-    setShowAddBudget(false);
+      if (response.ok) {
+        const data = await response.json();
+        const newBudgetData: Budget = {
+          id: data.id,
+          name: data.name,
+          totalAmount: parseFloat(data.total_amount),
+          expenses: [],
+        };
+        setBudgets([...budgets, newBudgetData]);
+        setNewBudget({ name: '', totalAmount: '' });
+        setShowAddBudget(false);
+      } else {
+        const error = await response.json();
+        alert(error.msg || 'Failed to create budget');
+      }
+    } catch (error) {
+      console.error('Error creating budget:', error);
+      alert('Failed to create budget');
+    }
   };
 
-  const handleAddExpense = () => {
+  const handleAddExpense = async () => {
     if (!selectedBudget || !newExpense.category || !newExpense.amount) return;
 
-    const expense: Expense = {
-      id: Date.now().toString(),
-      category: newExpense.category,
-      amount: parseFloat(newExpense.amount),
-      description: newExpense.description,
-      date: new Date().toISOString(),
-    };
+    try {
+      const response = await fetch(`${apiUrl}/budgets/${selectedBudget.id}/expenses`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          category: newExpense.category,
+          amount: newExpense.amount,
+          description: newExpense.description,
+        }),
+      });
 
-    const updatedBudgets = budgets.map((budget) => {
-      if (budget.id === selectedBudget.id) {
-        return {
-          ...budget,
-          expenses: [...budget.expenses, expense],
+      if (response.ok) {
+        const data = await response.json();
+        const newExpenseData: Expense = {
+          id: data.id,
+          category: data.category,
+          amount: parseFloat(data.amount),
+          description: data.description || '',
+          date: data.date,
         };
-      }
-      return budget;
-    });
 
-    saveBudgets(updatedBudgets);
-    setNewExpense({ category: '', amount: '', description: '' });
-    setShowAddExpense(false);
+        const updatedBudgets = budgets.map((budget) => {
+          if (budget.id === selectedBudget.id) {
+            return {
+              ...budget,
+              expenses: [...budget.expenses, newExpenseData],
+            };
+          }
+          return budget;
+        });
+
+        setBudgets(updatedBudgets);
+        setNewExpense({ category: '', amount: '', description: '' });
+        setShowAddExpense(false);
+      } else {
+        const error = await response.json();
+        alert(error.msg || 'Failed to create expense');
+      }
+    } catch (error) {
+      console.error('Error creating expense:', error);
+      alert('Failed to create expense');
+    }
   };
 
   const calculateTotalExpenses = (expenses: Expense[]) => {
@@ -109,7 +176,11 @@ const Dashboard = () => {
           </motion.button>
         </div>
 
-        {budgets.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">Loading budgets...</p>
+          </div>
+        ) : budgets.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">No budgets yet. Create your first budget to get started!</p>
           </div>
@@ -131,9 +202,24 @@ const Dashboard = () => {
                       <Edit2 className="h-5 w-5" />
                     </button>
                     <button
-                      onClick={() => {
-                        const updatedBudgets = budgets.filter((b) => b.id !== budget.id);
-                        saveBudgets(updatedBudgets);
+                      onClick={async () => {
+                        if (confirm('Are you sure you want to delete this budget?')) {
+                          try {
+                            const response = await fetch(`${apiUrl}/budgets/${budget.id}`, {
+                              method: 'DELETE',
+                              headers: getAuthHeaders(),
+                            });
+                            if (response.ok) {
+                              setBudgets(budgets.filter((b) => b.id !== budget.id));
+                            } else {
+                              const error = await response.json();
+                              alert(error.msg || 'Failed to delete budget');
+                            }
+                          } catch (error) {
+                            console.error('Error deleting budget:', error);
+                            alert('Failed to delete budget');
+                          }
+                        }
                       }}
                       className="text-red-600 hover:text-red-800"
                     >

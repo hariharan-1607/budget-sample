@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  getAuthHeaders: () => Record<string, string>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -29,45 +30,75 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.msg || 'Login failed');
+    const apiUrl = import.meta.env.VITE_API_URL || '/api';
+    try {
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    localStorage.setItem('user', JSON.stringify(data.user));
-    localStorage.setItem('token', data.token);
-    setUser(data.user);
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error('Failed to parse JSON response:', text);
+        throw new Error(`Server error: ${text.substring(0, 100)}...`);
+      }
+
+      if (!response.ok) throw new Error(data.msg || 'Login failed');
+
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('token', data.token);
+      setUser(data.user);
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
   const signup = async (name: string, email: string, password: string) => {
-    const response = await fetch('/api/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.msg || 'Signup failed');
+    const apiUrl = import.meta.env.VITE_API_URL || '/api';
+    try {
+      const response = await fetch(`${apiUrl}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
 
-    // Auto login after signup? Or let them login. 
-    // The previous implementation was auto-login like.
-    // Let's just return here and let the component handle redirect or auto-login.
-    // But consistent with previous mock:
-    // We can't easily auto-login unless the signup returns the token too.
-    // The current backend signup route returns { msg: "User registered successfully" } but NO token.
-    // So we can't auto-login without modifying backend or making a second request.
-    // I will modify the component to redirect to login or handle it.
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error('Failed to parse JSON response:', text);
+        throw new Error(`Server error: ${text.substring(0, 100)}...`);
+      }
+
+      if (!response.ok) throw new Error(data.msg || 'Signup failed');
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      throw error;
+    }
+  };
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+    };
   };
 
   const logout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, getAuthHeaders }}>
       {children}
     </AuthContext.Provider>
   );
