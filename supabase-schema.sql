@@ -38,35 +38,50 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 
--- Create policies for users table
-CREATE POLICY "Users can read their own data" ON users
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can read their own data" ON users;
+DROP POLICY IF EXISTS "Users can insert their own data" ON users;
+DROP POLICY IF EXISTS "Users can read their own budgets" ON budgets;
+DROP POLICY IF EXISTS "Users can insert their own budgets" ON budgets;
+DROP POLICY IF EXISTS "Users can update their own budgets" ON budgets;
+DROP POLICY IF EXISTS "Users can delete their own budgets" ON budgets;
+DROP POLICY IF EXISTS "Users can read expenses from their budgets" ON expenses;
+DROP POLICY IF EXISTS "Users can insert expenses to their budgets" ON expenses;
+DROP POLICY IF EXISTS "Users can update expenses in their budgets" ON expenses;
+DROP POLICY IF EXISTS "Users can delete expenses from their budgets" ON expenses;
+
+-- Create policies for users table (allow all operations for API key access)
+CREATE POLICY "Enable read access for all users" ON users
   FOR SELECT USING (true);
 
-CREATE POLICY "Users can insert their own data" ON users
+CREATE POLICY "Enable insert access for all users" ON users
   FOR INSERT WITH CHECK (true);
 
--- Create policies for budgets table
-CREATE POLICY "Users can read their own budgets" ON budgets
-  FOR SELECT USING (true);
-
-CREATE POLICY "Users can insert their own budgets" ON budgets
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Users can update their own budgets" ON budgets
+CREATE POLICY "Enable update access for all users" ON users
   FOR UPDATE USING (true);
 
-CREATE POLICY "Users can delete their own budgets" ON budgets
+-- Create policies for budgets table (allow all operations for API key access)
+CREATE POLICY "Enable read access for all budgets" ON budgets
+  FOR SELECT USING (true);
+
+CREATE POLICY "Enable insert access for all budgets" ON budgets
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Enable update access for all budgets" ON budgets
+  FOR UPDATE USING (true);
+
+CREATE POLICY "Enable delete access for all budgets" ON budgets
   FOR DELETE USING (true);
 
--- Create policies for expenses table
-CREATE POLICY "Users can read expenses from their budgets" ON expenses
+-- Create policies for expenses table (allow all operations for API key access)
+CREATE POLICY "Enable read access for all expenses" ON expenses
   FOR SELECT USING (true);
 
-CREATE POLICY "Users can insert expenses to their budgets" ON expenses
+CREATE POLICY "Enable insert access for all expenses" ON expenses
   FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Users can update expenses in their budgets" ON expenses
+CREATE POLICY "Enable update access for all expenses" ON expenses
   FOR UPDATE USING (true);
 
-CREATE POLICY "Users can delete expenses from their budgets" ON expenses
+CREATE POLICY "Enable delete access for all expenses" ON expenses
   FOR DELETE USING (true);
