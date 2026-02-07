@@ -1,6 +1,6 @@
 # Budget Manager Application
 
-A full-stack budget management application built with React, Express, and Supabase, deployed on Netlify.
+A full-stack budget management application built with React, Express, and Supabase, deployed on Vercel.
 
 ## Features
 
@@ -8,7 +8,7 @@ A full-stack budget management application built with React, Express, and Supaba
 - 💰 Create and manage budgets
 - 📊 Track expenses by category
 - 📱 Responsive design with Tailwind CSS
-- ☁️ Serverless deployment on Netlify
+- ☁️ Serverless deployment on Vercel
 - 🗄️ Supabase PostgreSQL database
 
 ## Tech Stack
@@ -24,7 +24,7 @@ A full-stack budget management application built with React, Express, and Supaba
 - Supabase (PostgreSQL)
 - JWT authentication
 - Bcrypt for password hashing
-- Serverless functions (Netlify Functions)
+- Serverless functions (Vercel)
 
 ## Project Structure
 
@@ -42,11 +42,8 @@ budget-sample/
 │   ├── middleware/       # Express middleware
 │   ├── routes/           # API routes
 │   └── server.js         # Express app
-├── netlify/
-│   └── functions/        # Netlify serverless functions
-│       └── server.js     # Main API handler
 ├── supabase-schema.sql   # Database schema
-└── netlify.toml          # Netlify configuration
+└── vercel.json           # Vercel configuration
 ```
 
 ## Getting Started
@@ -56,7 +53,7 @@ budget-sample/
 - Node.js 18 or higher
 - npm or yarn
 - A Supabase account
-- A Netlify account (for deployment)
+- A Vercel account (for deployment)
 
 ### Local Development
 
@@ -118,9 +115,9 @@ budget-sample/
    - Frontend: http://localhost:5173
    - Backend API: http://localhost:5000/api
 
-## Deployment to Netlify
+## Deployment to Vercel
 
-Follow the comprehensive guide in [`NETLIFY_DEPLOYMENT.md`](NETLIFY_DEPLOYMENT.md)
+Follow the comprehensive guide in [`VERCEL_DEPLOYMENT.md`](VERCEL_DEPLOYMENT.md)
 
 ### Quick Deployment Steps
 
@@ -131,14 +128,14 @@ Follow the comprehensive guide in [`NETLIFY_DEPLOYMENT.md`](NETLIFY_DEPLOYMENT.m
    git push origin main
    ```
 
-2. **Deploy on Netlify**
-   - Go to [netlify.com](https://netlify.com)
-   - Click "Add new site" > "Import an existing project"
-   - Connect your GitHub repository
-   - Netlify will auto-detect settings from [`netlify.toml`](netlify.toml)
+2. **Deploy on Vercel**
+   - Go to [vercel.com](https://vercel.com)
+   - Click "Add New" > "Project"
+   - Import your GitHub repository
+   - Vercel will auto-detect settings
 
-3. **Set environment variables in Netlify**
-   - Go to Site settings > Environment variables
+3. **Set environment variables in Vercel**
+   - Go to Project Settings > Environment Variables
    - Add:
      - `SUPABASE_URL`
      - `SUPABASE_ANON_KEY`
@@ -146,8 +143,8 @@ Follow the comprehensive guide in [`NETLIFY_DEPLOYMENT.md`](NETLIFY_DEPLOYMENT.m
      - `NODE_ENV=production`
 
 4. **Deploy!**
-   - Netlify will automatically build and deploy your site
-   - Your site will be live at `https://your-site.netlify.app`
+   - Vercel will automatically build and deploy your site
+   - Your site will be live at `https://your-project.vercel.app`
 
 ## API Endpoints
 
@@ -181,15 +178,15 @@ See [`supabase-schema.sql`](supabase-schema.sql) for the complete schema.
 ### "Unexpected token 'A', "An error o"... is not valid JSON"
 
 This error occurs when the API returns HTML instead of JSON. Solutions:
-1. Verify environment variables are set in Netlify dashboard
-2. Check Netlify function logs for detailed errors
+1. Verify environment variables are set in Vercel dashboard
+2. Check Vercel function logs for detailed errors
 3. Ensure Supabase credentials are correct
 
 ### CORS Errors
 
 The backend is configured to allow all origins. If you still face CORS issues:
 1. Check that API requests use the correct URL
-2. Verify the Netlify function is deployed correctly
+2. Verify the Vercel function is deployed correctly
 
 ### Database Connection Issues
 
@@ -230,8 +227,8 @@ This project is open source and available under the MIT License.
 ## Support
 
 For issues and questions:
-1. Check the [`NETLIFY_DEPLOYMENT.md`](NETLIFY_DEPLOYMENT.md) guide
-2. Review Netlify function logs
+1. Check the [`VERCEL_DEPLOYMENT.md`](VERCEL_DEPLOYMENT.md) guide
+2. Review Vercel function logs
 3. Check Supabase logs
 4. Open an issue on GitHub
 
@@ -239,5 +236,5 @@ For issues and questions:
 
 - Built with [React](https://react.dev/)
 - Powered by [Supabase](https://supabase.com)
-- Deployed on [Netlify](https://netlify.com)
+- Deployed on [Vercel](https://vercel.com)
 - Styled with [Tailwind CSS](https://tailwindcss.com)
