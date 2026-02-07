@@ -2,7 +2,7 @@
     "name": "budget-budget-monorepo",
     "version": "1.0.0",
     "scripts": {
-        "build": "cd frontend && npm install && npm run build",
+        "build": "bash build.sh",
         "postinstall": "cd backend && npm install"
     },
   "dependencies": {
