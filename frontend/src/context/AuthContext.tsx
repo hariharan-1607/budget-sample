@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
   id: string;
@@ -65,7 +64,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       password,
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Login error details:', error);
+      throw error;
+    }
 
     if (data.user) {
       setUser({
@@ -87,7 +89,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Signup error details:', error);
+      throw error;
+    }
 
     if (data.user) {
       setUser({
