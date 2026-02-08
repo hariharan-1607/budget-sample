@@ -1,15 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
   id: string;
   email: string;
+  name?: string;
 }
 
 interface AuthContextType {
   user: User | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   getAuthHeaders: () => Record<string, string>;
 }
 
@@ -23,82 +27,92 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) setUser(JSON.parse(storedUser));
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.name
+        });
+      }
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.name
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    const apiUrl = import.meta.env.VITE_API_URL || '/api';
-    try {
-      const response = await fetch(`${apiUrl}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+
+    if (data.user) {
+      setUser({
+        id: data.user.id,
+        email: data.user.email || '',
+        name: data.user.user_metadata?.name
       });
-
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        console.error('Failed to parse JSON response:', text);
-        throw new Error(`Server error: ${text.substring(0, 100)}...`);
-      }
-
-      if (!response.ok) throw new Error(data.msg || 'Login failed');
-
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('token', data.token);
-      setUser(data.user);
-    } catch (error: any) {
-      console.error('Login error:', error);
-      throw error;
     }
   };
 
   const signup = async (name: string, email: string, password: string) => {
-    const apiUrl = import.meta.env.VITE_API_URL || '/api';
-    try {
-      const response = await fetch(`${apiUrl}/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name: name,
+        },
+      },
+    });
+
+    if (error) throw error;
+
+    if (data.user) {
+      setUser({
+        id: data.user.id,
+        email: data.user.email || '',
+        name: data.user.user_metadata?.name
       });
-
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        console.error('Failed to parse JSON response:', text);
-        throw new Error(`Server error: ${text.substring(0, 100)}...`);
-      }
-
-      if (!response.ok) throw new Error(data.msg || 'Signup failed');
-    } catch (error: any) {
-      console.error('Signup error:', error);
-      throw error;
     }
   };
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    };
-  };
-
-  const logout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
   };
 
+  const getAuthHeaders = () => {
+    // Note: With Supabase client, we usually don't need manual headers for Supabase calls,
+    // but keeping the signature for compatibility if other APIs are used.
+    return {
+      'Content-Type': 'application/json',
+    };
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, getAuthHeaders }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, getAuthHeaders }}>
       {children}
     </AuthContext.Provider>
   );

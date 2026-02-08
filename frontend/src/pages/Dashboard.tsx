@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, Edit2, IndianRupee } from 'lucide-react';
+import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface Expense {
   id: string;
@@ -19,7 +20,7 @@ interface Budget {
 }
 
 const Dashboard = () => {
-  const { user, getAuthHeaders } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddBudget, setShowAddBudget] = useState(false);
@@ -32,8 +33,6 @@ const Dashboard = () => {
     description: '',
   });
 
-  const apiUrl = import.meta.env.VITE_API_URL || '/api';
-
   useEffect(() => {
     if (user) {
       fetchBudgets();
@@ -41,28 +40,46 @@ const Dashboard = () => {
   }, [user]);
 
   const fetchBudgets = async () => {
+    if (!user) return;
     try {
       setLoading(true);
-      const response = await fetch(`${apiUrl}/budgets`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        // Transform Supabase data to match frontend interface
-        const transformedBudgets = data.map((budget: any) => ({
-          id: budget.id,
-          name: budget.name,
-          totalAmount: parseFloat(budget.total_amount),
-          expenses: (budget.expenses || []).map((exp: any) => ({
-            id: exp.id,
-            category: exp.category,
-            amount: parseFloat(exp.amount),
-            description: exp.description || '',
-            date: exp.date,
-          })),
-        }));
-        setBudgets(transformedBudgets);
-      }
+
+      // Fetch budgets
+      const { data: budgetsData, error: budgetsError } = await supabase
+        .from('budgets')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (budgetsError) throw budgetsError;
+
+      // Fetch expenses for each budget
+      const budgetsWithExpenses = await Promise.all(
+        (budgetsData || []).map(async (budget: any) => {
+          const { data: expensesData, error: expensesError } = await supabase
+            .from('expenses')
+            .select('*')
+            .eq('budget_id', budget.id)
+            .order('date', { ascending: false });
+
+          if (expensesError) throw expensesError;
+
+          return {
+            id: budget.id,
+            name: budget.name,
+            totalAmount: parseFloat(budget.total_amount),
+            expenses: (expensesData || []).map((exp: any) => ({
+              id: exp.id,
+              category: exp.category,
+              amount: parseFloat(exp.amount),
+              description: exp.description || '',
+              date: exp.date,
+            })),
+          };
+        })
+      );
+
+      setBudgets(budgetsWithExpenses);
     } catch (error) {
       console.error('Error fetching budgets:', error);
     } finally {
@@ -71,36 +88,37 @@ const Dashboard = () => {
   };
 
   const handleAddBudget = async () => {
-    if (!newBudget.name || !newBudget.totalAmount) return;
+    if (!newBudget.name || !newBudget.totalAmount || !user) return;
 
     try {
-      const response = await fetch(`${apiUrl}/budgets`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          name: newBudget.name,
-          totalAmount: newBudget.totalAmount,
-        }),
-      });
+      const { data, error } = await supabase
+        .from('budgets')
+        .insert([
+          {
+            user_id: user.id,
+            name: newBudget.name,
+            total_amount: parseFloat(newBudget.totalAmount),
+          },
+        ])
+        .select('*')
+        .single();
 
-      if (response.ok) {
-        const data = await response.json();
+      if (error) throw error;
+
+      if (data) {
         const newBudgetData: Budget = {
           id: data.id,
           name: data.name,
           totalAmount: parseFloat(data.total_amount),
           expenses: [],
         };
-        setBudgets([...budgets, newBudgetData]);
+        setBudgets([newBudgetData, ...budgets]);
         setNewBudget({ name: '', totalAmount: '' });
         setShowAddBudget(false);
-      } else {
-        const error = await response.json();
-        alert(error.msg || 'Failed to create budget');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating budget:', error);
-      alert('Failed to create budget');
+      alert(error.message || 'Failed to create budget');
     }
   };
 
@@ -108,18 +126,22 @@ const Dashboard = () => {
     if (!selectedBudget || !newExpense.category || !newExpense.amount) return;
 
     try {
-      const response = await fetch(`${apiUrl}/budgets/${selectedBudget.id}/expenses`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          category: newExpense.category,
-          amount: newExpense.amount,
-          description: newExpense.description,
-        }),
-      });
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert([
+          {
+            budget_id: selectedBudget.id,
+            category: newExpense.category,
+            amount: parseFloat(newExpense.amount),
+            description: newExpense.description,
+          },
+        ])
+        .select('*')
+        .single();
 
-      if (response.ok) {
-        const data = await response.json();
+      if (error) throw error;
+
+      if (data) {
         const newExpenseData: Expense = {
           id: data.id,
           category: data.category,
@@ -132,7 +154,7 @@ const Dashboard = () => {
           if (budget.id === selectedBudget.id) {
             return {
               ...budget,
-              expenses: [...budget.expenses, newExpenseData],
+              expenses: [newExpenseData, ...budget.expenses],
             };
           }
           return budget;
@@ -141,13 +163,28 @@ const Dashboard = () => {
         setBudgets(updatedBudgets);
         setNewExpense({ category: '', amount: '', description: '' });
         setShowAddExpense(false);
-      } else {
-        const error = await response.json();
-        alert(error.msg || 'Failed to create expense');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating expense:', error);
-      alert('Failed to create expense');
+      alert(error.message || 'Failed to create expense');
+    }
+  };
+
+  const handleDeleteBudget = async (budgetId: string) => {
+    if (!confirm('Are you sure you want to delete this budget?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('budgets')
+        .delete()
+        .eq('id', budgetId);
+
+      if (error) throw error;
+
+      setBudgets(budgets.filter((b) => b.id !== budgetId));
+    } catch (error: any) {
+      console.error('Error deleting budget:', error);
+      alert(error.message || 'Failed to delete budget');
     }
   };
 
@@ -159,6 +196,14 @@ const Dashboard = () => {
     const totalExpenses = calculateTotalExpenses(budget.expenses);
     return budget.totalAmount - totalExpenses;
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center">
+        <p className="text-gray-500 text-lg">Authenticating...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100vh-8rem)] py-12 px-4 sm:px-6 lg:px-8">
@@ -202,25 +247,7 @@ const Dashboard = () => {
                       <Edit2 className="h-5 w-5" />
                     </button>
                     <button
-                      onClick={async () => {
-                        if (confirm('Are you sure you want to delete this budget?')) {
-                          try {
-                            const response = await fetch(`${apiUrl}/budgets/${budget.id}`, {
-                              method: 'DELETE',
-                              headers: getAuthHeaders(),
-                            });
-                            if (response.ok) {
-                              setBudgets(budgets.filter((b) => b.id !== budget.id));
-                            } else {
-                              const error = await response.json();
-                              alert(error.msg || 'Failed to delete budget');
-                            }
-                          } catch (error) {
-                            console.error('Error deleting budget:', error);
-                            alert('Failed to delete budget');
-                          }
-                        }
-                      }}
+                      onClick={() => handleDeleteBudget(budget.id)}
                       className="text-red-600 hover:text-red-800"
                     >
                       <Trash2 className="h-5 w-5" />
@@ -262,14 +289,14 @@ const Dashboard = () => {
                   <div className="mt-4">
                     <h4 className="text-sm font-medium text-gray-900 mb-2">Recent Expenses</h4>
                     <div className="space-y-2">
-                      {budget.expenses.slice(-3).map((expense) => (
+                      {budget.expenses.slice(0, 3).map((expense) => (
                         <div
                           key={expense.id}
                           className="flex justify-between items-center text-sm p-2 bg-gray-50 rounded"
                         >
                           <div>
                             <p className="font-medium">{expense.category}</p>
-                            <p className="text-gray-500">{expense.description}</p>
+                            <p className="text-gray-500 text-xs">{expense.description}</p>
                           </div>
                           <span className="font-medium">₹{expense.amount.toLocaleString()}</span>
                         </div>
@@ -284,7 +311,7 @@ const Dashboard = () => {
 
         {/* Add Budget Modal */}
         {showAddBudget && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -331,7 +358,7 @@ const Dashboard = () => {
 
         {/* Add Expense Modal */}
         {showAddExpense && selectedBudget && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
